@@ -13,7 +13,8 @@
         const firebaseConfig = {
             apiKey: "AIzaSyCZcBH04eyHMm1sVK2-vl3QzKVyb2XhU6c",
             authDomain: "refinery-log.firebaseapp.com",
-            databaseURL: "https://refinery-log-default-rtdb.firebaseio.com",
+            // UPDATED to your active Europe/Belgium database
+            databaseURL: "https://refinery-log-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "refinery-log",
             storageBucket: "refinery-log.firebasestorage.app",
             messagingSenderId: "453589843848",
@@ -24,7 +25,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         
-        // Variables for our 3 separate charts
         let bxChartObj = null;
         let phChartObj = null;
         let levelChartObj = null;
@@ -76,7 +76,6 @@
                 flow: flow
             }).then(() => {
                 alert(`Data Logged Successfully by ${manager} at ${timeString}!`);
-                
                 document.getElementById('bx').value = '';
                 document.getElementById('ph').value = '';
                 document.getElementById('level').value = '';
@@ -98,7 +97,8 @@
                     const val = child.val();
                     const date = new Date(val.timestamp);
                     
-                    if(pointsLimit <= 4) {
+                    // Improved time labeling for your shift patterns
+                    if(pointsLimit <= 8) {
                         labels.push(`${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`);
                     } else {
                         labels.push(`${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:00`);
@@ -124,31 +124,28 @@
         }
 
         function updateCharts(labels, bxData, phData, levelData) {
-            // 1. Brix Chart
             const ctxBx = document.getElementById('bxChart').getContext('2d');
             if (bxChartObj) bxChartObj.destroy();
             bxChartObj = new Chart(ctxBx, {
                 type: 'line',
                 data: { labels: labels, datasets: [{ label: 'Brix (BX)', data: bxData, borderColor: '#0056b3', backgroundColor: '#0056b3', tension: 0.1 }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } } }
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // 2. pH Chart
             const ctxPh = document.getElementById('phChart').getContext('2d');
             if (phChartObj) phChartObj.destroy();
             phChartObj = new Chart(ctxPh, {
                 type: 'line',
                 data: { labels: labels, datasets: [{ label: 'pH Level', data: phData, borderColor: '#28a745', backgroundColor: '#28a745', tension: 0.1 }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } } }
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
-            // 3. Level Chart
             const ctxLevel = document.getElementById('levelChart').getContext('2d');
             if (levelChartObj) levelChartObj.destroy();
             levelChartObj = new Chart(ctxLevel, {
                 type: 'line',
                 data: { labels: labels, datasets: [{ label: 'Tank Level (%)', data: levelData, borderColor: '#ff8c00', backgroundColor: '#ff8c00', tension: 0.1 }] },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } } }
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
@@ -165,9 +162,8 @@
         button:hover { background: #003d82; }
         .chart-container { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
         .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .chart-header select { width: auto; padding: 5px 10px; }
-        .single-chart { height: 200px; margin-bottom: 30px; } /* Controls height of individual charts */
-        .chart-title { text-align: center; margin-bottom: 5px; color: #555; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;}
+        .single-chart { height: 200px; margin-bottom: 30px; }
+        .chart-title { text-align: center; margin-bottom: 5px; color: #555; font-size: 14px; text-transform: uppercase; font-weight: bold;}
         #avgDisplay { font-weight: bold; text-align: center; margin-bottom: 20px; color: #333; font-size: 16px; padding: 10px; background-color: #e9ecef; border-radius: 4px;}
         .info-text { font-size: 12px; color: #666; text-align: center; margin-top: 10px; }
     </style>
@@ -177,12 +173,10 @@
 <div class="container">
     <h2>Golden Sugar Refinery - Shift Log</h2>
     <form id="logForm" onsubmit="event.preventDefault(); submitData();">
-        
         <div class="form-group">
             <label>Shift Manager Name</label>
             <input type="text" id="managerName" required placeholder="Enter your full name">
         </div>
-
         <div class="form-group">
             <label>Process Area</label>
             <select id="areaSelect">
@@ -193,27 +187,22 @@
                 <option value="R1_Feed">R1 Feed Tanks</option>
             </select>
         </div>
-
         <div class="form-group" id="flowContainer">
             <label>Melt Flow Rate (ton/h)</label>
             <input type="number" id="flowRate" step="0.1" placeholder="Enter flow rate">
         </div>
-
         <div class="form-group">
             <label>Brix (BX)</label>
             <input type="number" id="bx" step="0.1" required placeholder="Enter BX">
         </div>
-
         <div class="form-group">
             <label>pH Level</label>
             <input type="number" id="ph" step="0.1" required placeholder="Enter pH">
         </div>
-
         <div class="form-group">
             <label>Tank Level (%)</label>
             <input type="number" id="level" step="0.1" required placeholder="Enter Level">
         </div>
-
         <button type="submit">Log Entry</button>
         <p class="info-text">🕒 Date and Time are automatically recorded upon submission.</p>
     </form>
@@ -228,19 +217,14 @@
                 <option value="2880">Last 360 Days</option>
             </select>
         </div>
-        
         <div id="avgDisplay">Waiting for shift data...</div>
-
         <div class="chart-title">Brix (BX) Profile</div>
         <div class="single-chart"><canvas id="bxChart"></canvas></div>
-
         <div class="chart-title">pH Profile</div>
         <div class="single-chart"><canvas id="phChart"></canvas></div>
-
         <div class="chart-title">Tank Level Profile</div>
         <div class="single-chart"><canvas id="levelChart"></canvas></div>
     </div>
 </div>
-
 </body>
 </html>
