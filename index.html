@@ -23,100 +23,136 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        let trendChart = null;
+        
+        // Variables for our 3 separate charts
+        let bxChartObj = null;
+        let phChartObj = null;
+        let levelChartObj = null;
 
-        document.getElementById('areaSelect').addEventListener('change', function() {
+        function refreshView() {
+            const area = document.getElementById('areaSelect').value;
+            const timeframe = parseInt(document.getElementById('timeframeSelect').value);
+            
             const flowContainer = document.getElementById('flowContainer');
-            if (this.value === 'Melt') {
+            if (area === 'Melt') {
                 flowContainer.style.display = 'block';
             } else {
                 flowContainer.style.display = 'none';
                 document.getElementById('flowRate').value = '';
             }
-            loadChartData(this.value);
-        });
+            loadChartData(area, timeframe);
+        }
+
+        document.getElementById('areaSelect').addEventListener('change', refreshView);
+        document.getElementById('timeframeSelect').addEventListener('change', refreshView);
 
         window.submitData = function() {
+            const manager = document.getElementById('managerName').value;
             const area = document.getElementById('areaSelect').value;
             const bx = parseFloat(document.getElementById('bx').value);
             const ph = parseFloat(document.getElementById('ph').value);
             const level = parseFloat(document.getElementById('level').value);
             const flow = parseFloat(document.getElementById('flowRate').value) || null;
 
-            if (!bx || !ph || !level) {
-                alert("Please fill in BX, pH, and Level.");
+            if (!manager || !bx || !ph || !level) {
+                alert("Please fill in your Name, BX, pH, and Level.");
                 return;
             }
 
+            const now = new Date();
+            const dateString = now.toLocaleDateString(); 
+            const timeString = now.toLocaleTimeString(); 
+
             const logRef = ref(db, 'logs/' + area);
+            
             push(logRef, {
-                timestamp: Date.now(),
+                timestamp: now.getTime(),
+                date: dateString,
+                time: timeString,
+                manager: manager,
                 bx: bx,
                 ph: ph,
                 level: level,
                 flow: flow
             }).then(() => {
-                alert("Data Logged Successfully!");
-                document.getElementById('logForm').reset();
-                document.getElementById('areaSelect').value = area; 
+                alert(`Data Logged Successfully by ${manager} at ${timeString}!`);
+                
+                document.getElementById('bx').value = '';
+                document.getElementById('ph').value = '';
+                document.getElementById('level').value = '';
+                document.getElementById('flowRate').value = '';
             }).catch((error) => {
                 alert("Error saving data: " + error);
             });
         };
 
-        function loadChartData(area) {
-            const logRef = query(ref(db, 'logs/' + area), orderByChild('timestamp'), limitToLast(4));
+        function loadChartData(area, pointsLimit) {
+            const logRef = query(ref(db, 'logs/' + area), orderByChild('timestamp'), limitToLast(pointsLimit));
             
             onValue(logRef, (snapshot) => {
                 const data = [];
                 const labels = [];
-                let bxSum = 0, phSum = 0;
+                let bxSum = 0, phSum = 0, levelSum = 0;
 
                 snapshot.forEach((child) => {
                     const val = child.val();
                     const date = new Date(val.timestamp);
-                    labels.push(`${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`);
+                    
+                    if(pointsLimit <= 4) {
+                        labels.push(`${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`);
+                    } else {
+                        labels.push(`${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:00`);
+                    }
+                    
                     data.push(val);
                     bxSum += val.bx;
                     phSum += val.ph;
+                    levelSum += val.level;
                 });
 
                 if (data.length > 0) {
                     document.getElementById('avgDisplay').innerText = 
-                        `12-Hour Avg - BX: ${(bxSum/data.length).toFixed(2)} | pH: ${(phSum/data.length).toFixed(2)}`;
-                    updateChart(labels, data.map(d => d.bx), data.map(d => d.ph));
+                        `Current View Avg - BX: ${(bxSum/data.length).toFixed(2)} | pH: ${(phSum/data.length).toFixed(2)} | Level: ${(levelSum/data.length).toFixed(1)}%`;
+                    updateCharts(labels, data.map(d => d.bx), data.map(d => d.ph), data.map(d => d.level));
                 } else {
                     document.getElementById('avgDisplay').innerText = "Waiting for shift data...";
-                    if(trendChart) trendChart.destroy();
+                    if(bxChartObj) bxChartObj.destroy();
+                    if(phChartObj) phChartObj.destroy();
+                    if(levelChartObj) levelChartObj.destroy();
                 }
             });
         }
 
-        function updateChart(labels, bxData, phData) {
-            const ctx = document.getElementById('trendChart').getContext('2d');
-            if (trendChart) trendChart.destroy();
-
-            trendChart = new Chart(ctx, {
+        function updateCharts(labels, bxData, phData, levelData) {
+            // 1. Brix Chart
+            const ctxBx = document.getElementById('bxChart').getContext('2d');
+            if (bxChartObj) bxChartObj.destroy();
+            bxChartObj = new Chart(ctxBx, {
                 type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Brix (BX)', data: bxData, borderColor: 'blue', yAxisID: 'y' },
-                        { label: 'pH Level', data: phData, borderColor: 'green', yAxisID: 'y1' }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Brix'} },
-                        y1: { type: 'linear', display: true, position: 'right', grid: {drawOnChartArea: false}, title: {display: true, text: 'pH'} }
-                    }
-                }
+                data: { labels: labels, datasets: [{ label: 'Brix (BX)', data: bxData, borderColor: '#0056b3', backgroundColor: '#0056b3', tension: 0.1 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } } }
+            });
+
+            // 2. pH Chart
+            const ctxPh = document.getElementById('phChart').getContext('2d');
+            if (phChartObj) phChartObj.destroy();
+            phChartObj = new Chart(ctxPh, {
+                type: 'line',
+                data: { labels: labels, datasets: [{ label: 'pH Level', data: phData, borderColor: '#28a745', backgroundColor: '#28a745', tension: 0.1 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } } }
+            });
+
+            // 3. Level Chart
+            const ctxLevel = document.getElementById('levelChart').getContext('2d');
+            if (levelChartObj) levelChartObj.destroy();
+            levelChartObj = new Chart(ctxLevel, {
+                type: 'line',
+                data: { labels: labels, datasets: [{ label: 'Tank Level (%)', data: levelData, borderColor: '#ff8c00', backgroundColor: '#ff8c00', tension: 0.1 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } } }
             });
         }
 
-        window.onload = () => loadChartData('Melt');
+        window.onload = () => loadChartData('Melt', 4);
     </script>
 
     <style>
@@ -125,10 +161,15 @@
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; }
         input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;}
-        button { background: #0056b3; color: white; border: none; padding: 12px 20px; cursor: pointer; width: 100%; font-size: 16px; border-radius: 4px;}
+        button { background: #0056b3; color: white; border: none; padding: 12px 20px; cursor: pointer; width: 100%; font-size: 16px; border-radius: 4px; margin-top: 10px;}
         button:hover { background: #003d82; }
-        .chart-container { margin-top: 30px; }
-        #avgDisplay { font-weight: bold; text-align: center; margin-top: 10px; color: #333; }
+        .chart-container { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .chart-header select { width: auto; padding: 5px 10px; }
+        .single-chart { height: 200px; margin-bottom: 30px; } /* Controls height of individual charts */
+        .chart-title { text-align: center; margin-bottom: 5px; color: #555; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;}
+        #avgDisplay { font-weight: bold; text-align: center; margin-bottom: 20px; color: #333; font-size: 16px; padding: 10px; background-color: #e9ecef; border-radius: 4px;}
+        .info-text { font-size: 12px; color: #666; text-align: center; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -137,6 +178,11 @@
     <h2>Golden Sugar Refinery - Shift Log</h2>
     <form id="logForm" onsubmit="event.preventDefault(); submitData();">
         
+        <div class="form-group">
+            <label>Shift Manager Name</label>
+            <input type="text" id="managerName" required placeholder="Enter your full name">
+        </div>
+
         <div class="form-group">
             <label>Process Area</label>
             <select id="areaSelect">
@@ -169,11 +215,30 @@
         </div>
 
         <button type="submit">Log Entry</button>
+        <p class="info-text">🕒 Date and Time are automatically recorded upon submission.</p>
     </form>
 
     <div class="chart-container">
-        <canvas id="trendChart"></canvas>
+        <div class="chart-header">
+            <h3>Process Profiles</h3>
+            <select id="timeframeSelect">
+                <option value="4">Last 12 Hours</option>
+                <option value="56">Last 7 Days</option>
+                <option value="240">Last 30 Days</option>
+                <option value="2880">Last 360 Days</option>
+            </select>
+        </div>
+        
         <div id="avgDisplay">Waiting for shift data...</div>
+
+        <div class="chart-title">Brix (BX) Profile</div>
+        <div class="single-chart"><canvas id="bxChart"></canvas></div>
+
+        <div class="chart-title">pH Profile</div>
+        <div class="single-chart"><canvas id="phChart"></canvas></div>
+
+        <div class="chart-title">Tank Level Profile</div>
+        <div class="single-chart"><canvas id="levelChart"></canvas></div>
     </div>
 </div>
 
