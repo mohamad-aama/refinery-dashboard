@@ -53,13 +53,11 @@
             const level = parseFloat(document.getElementById('level').value);
             const flow = parseFloat(document.getElementById('flowRate').value) || null;
 
-            // Ensures they pick a name from the list
             if (!manager || manager === "" || !bx || !ph || !level) {
                 alert("Please select your Name and fill in BX, pH, and Level.");
                 return;
             }
 
-            // This automatically grabs the exact date and time the button is clicked
             const now = new Date();
             const dateString = now.toLocaleDateString(); 
             const timeString = now.toLocaleTimeString(); 
@@ -77,7 +75,7 @@
                 flow: flow
             }).then(() => {
                 alert(`Data Logged Successfully by ${manager} at ${timeString}!`);
-                document.getElementById('managerName').value = ''; // Resets dropdown
+                document.getElementById('managerName').value = ''; 
                 document.getElementById('bx').value = '';
                 document.getElementById('ph').value = '';
                 document.getElementById('level').value = '';
@@ -150,7 +148,6 @@
             });
         }
 
-        // Live Clock Function
         window.onload = () => {
             loadChartData('Melt', 4);
             setInterval(() => {
@@ -183,7 +180,6 @@
     <h2>Golden Sugar Refinery - Shift Log</h2>
     <form id="logForm" onsubmit="event.preventDefault(); submitData();">
         
-        <!-- UPDATED: Dropdown list for Managers -->
         <div class="form-group">
             <label>Shift Manager Name</label>
             <select id="managerName" required>
@@ -195,6 +191,7 @@
                 <option value="Alonge">Alonge</option>
                 <option value="Ema1">Ema1</option>
                 <option value="Ema2">Ema2</option>
+                <option value="Okafor">Okafor</option>
             </select>
         </div>
 
@@ -226,7 +223,6 @@
         </div>
         <button type="submit">Log Entry</button>
         
-        <!-- UPDATED: Live clock to show automatic time recording -->
         <p class="info-text">🕒 Current Time: <span id="liveClock">Loading...</span><br>Date and Time are automatically recorded upon submission.</p>
     </form>
 
