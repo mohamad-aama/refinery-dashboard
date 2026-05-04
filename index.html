@@ -13,7 +13,6 @@
         const firebaseConfig = {
             apiKey: "AIzaSyCZcBH04eyHMm1sVK2-vl3QzKVyb2XhU6c",
             authDomain: "refinery-log.firebaseapp.com",
-            // UPDATED to your active Europe/Belgium database
             databaseURL: "https://refinery-log-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "refinery-log",
             storageBucket: "refinery-log.firebasestorage.app",
@@ -54,11 +53,13 @@
             const level = parseFloat(document.getElementById('level').value);
             const flow = parseFloat(document.getElementById('flowRate').value) || null;
 
-            if (!manager || !bx || !ph || !level) {
-                alert("Please fill in your Name, BX, pH, and Level.");
+            // Ensures they pick a name from the list
+            if (!manager || manager === "" || !bx || !ph || !level) {
+                alert("Please select your Name and fill in BX, pH, and Level.");
                 return;
             }
 
+            // This automatically grabs the exact date and time the button is clicked
             const now = new Date();
             const dateString = now.toLocaleDateString(); 
             const timeString = now.toLocaleTimeString(); 
@@ -76,6 +77,7 @@
                 flow: flow
             }).then(() => {
                 alert(`Data Logged Successfully by ${manager} at ${timeString}!`);
+                document.getElementById('managerName').value = ''; // Resets dropdown
                 document.getElementById('bx').value = '';
                 document.getElementById('ph').value = '';
                 document.getElementById('level').value = '';
@@ -97,7 +99,6 @@
                     const val = child.val();
                     const date = new Date(val.timestamp);
                     
-                    // Improved time labeling for your shift patterns
                     if(pointsLimit <= 8) {
                         labels.push(`${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`);
                     } else {
@@ -149,7 +150,14 @@
             });
         }
 
-        window.onload = () => loadChartData('Melt', 4);
+        // Live Clock Function
+        window.onload = () => {
+            loadChartData('Melt', 4);
+            setInterval(() => {
+                const clock = document.getElementById('liveClock');
+                if(clock) clock.innerText = new Date().toLocaleString();
+            }, 1000);
+        };
     </script>
 
     <style>
@@ -165,7 +173,8 @@
         .single-chart { height: 200px; margin-bottom: 30px; }
         .chart-title { text-align: center; margin-bottom: 5px; color: #555; font-size: 14px; text-transform: uppercase; font-weight: bold;}
         #avgDisplay { font-weight: bold; text-align: center; margin-bottom: 20px; color: #333; font-size: 16px; padding: 10px; background-color: #e9ecef; border-radius: 4px;}
-        .info-text { font-size: 12px; color: #666; text-align: center; margin-top: 10px; }
+        .info-text { font-size: 13px; color: #666; text-align: center; margin-top: 15px; background: #eef2f5; padding: 10px; border-radius: 4px; border: 1px solid #dcdcdc;}
+        #liveClock { font-weight: bold; color: #0056b3; }
     </style>
 </head>
 <body>
@@ -173,10 +182,22 @@
 <div class="container">
     <h2>Golden Sugar Refinery - Shift Log</h2>
     <form id="logForm" onsubmit="event.preventDefault(); submitData();">
+        
+        <!-- UPDATED: Dropdown list for Managers -->
         <div class="form-group">
             <label>Shift Manager Name</label>
-            <input type="text" id="managerName" required placeholder="Enter your full name">
+            <select id="managerName" required>
+                <option value="" disabled selected>Select your name...</option>
+                <option value="Austin">Austin</option>
+                <option value="Niejo">Niejo</option>
+                <option value="Val">Val</option>
+                <option value="Adeyamo">Adeyamo</option>
+                <option value="Alonge">Alonge</option>
+                <option value="Ema1">Ema1</option>
+                <option value="Ema2">Ema2</option>
+            </select>
         </div>
+
         <div class="form-group">
             <label>Process Area</label>
             <select id="areaSelect">
@@ -204,7 +225,9 @@
             <input type="number" id="level" step="0.1" required placeholder="Enter Level">
         </div>
         <button type="submit">Log Entry</button>
-        <p class="info-text">🕒 Date and Time are automatically recorded upon submission.</p>
+        
+        <!-- UPDATED: Live clock to show automatic time recording -->
+        <p class="info-text">🕒 Current Time: <span id="liveClock">Loading...</span><br>Date and Time are automatically recorded upon submission.</p>
     </form>
 
     <div class="chart-container">
